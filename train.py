@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, f1_score, roc_auc_score
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, f1_score, roc_auc_score, roc_curve
 from sklearn.ensemble import GradientBoostingClassifier, VotingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import LinearSVC
@@ -196,6 +196,9 @@ class MentalHealthDetector:
         y_pred_trad = self.traditional_model.predict(X_test_tfidf)
         y_pred_proba_trad = self.traditional_model.predict_proba(X_test_tfidf)[:, 1]
         
+        # Plot ROC curve to help determine the optimal threshold
+        thresholds = self.plot_roc_curve(y_test, y_pred_proba_trad)
+        
         print("\nModel Evaluation:")
         print(f"Accuracy: {accuracy_score(y_test, y_pred_trad):.4f}")
         print(f"F1 Score: {f1_score(y_test, y_pred_trad):.4f}")
@@ -263,12 +266,16 @@ class MentalHealthDetector:
         except Exception as e:
             print(f"Error extracting feature importance: {str(e)}")
     
-    def predict(self, text):
+    def predict(self, text, threshold=0.5):
+        """
+        Predict the mental health status of a given text.
+        Allows for a customizable threshold.
+        """
         clean_text = self.preprocess_text(text)
         text_tfidf = self.tfidf_vectorizer.transform([clean_text])
         
         trad_pred_prob = self.traditional_model.predict_proba(text_tfidf)[0, 1]
-        trad_pred_class = 1 if trad_pred_prob > 0.5 else 0
+        trad_pred_class = 1 if trad_pred_prob > threshold else 0
         
         # Risk level determination
         if trad_pred_prob < 0.3:
@@ -318,6 +325,19 @@ class MentalHealthDetector:
         plt.ylabel('Actual')
         plt.title('Confusion Matrix')
         plt.show()
+
+    def plot_roc_curve(self, y_true, y_proba):
+        """Plot the ROC curve to help determine the optimal threshold."""
+        fpr, tpr, thresholds = roc_curve(y_true, y_proba)
+        plt.figure(figsize=(8, 6))
+        plt.plot(fpr, tpr, label="ROC Curve")
+        plt.plot([0, 1], [0, 1], 'k--', label="Random Guess")
+        plt.xlabel("False Positive Rate")
+        plt.ylabel("True Positive Rate")
+        plt.title("ROC Curve")
+        plt.legend()
+        plt.show()
+        return thresholds
 
     def save_models(self, path_prefix):
         import joblib
